@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>non brownian paint</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            display: flex;
+        }
+        #controls {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            background: rgba(255, 255, 255, 0.8);
+            padding: 10px;
+            border-radius: 8px;
+            z-index: 1000;
+        }
+        #canvas {
+            display: block;
+            flex-grow: 1;
+        }
+    </style>
+</head>
+<body>
+    <div id="controls">
+        <label>
+            Particle Color:
+            <input type="color" id="colorPicker" value="#0000FF">
+        </label>
+        <button id="restartButton">Restart</button>
+        <button id="saveButton">Save Image</button>
+    </div>
+    <canvas id="canvas"></canvas>
+    <script>
+        let canvas = document.getElementById("canvas");
+        const ctx = canvas.getContext("2d");
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        let canvasRunning = true;
+
+        // Parameters
+        let particleRadius = 5;
+        let gravity = 0.5;
+        let particles = [];
+        let mouseX = 0;
+        let mouseY = 0;
+        let isMousePressed = false;
+
+        // Color Picker
+        const colorPicker = document.getElementById("colorPicker");
+
+        // Particle class to represent the water droplet
+        class Particle {
+            constructor(x, y, speedX, speedY, color) {
+                this.x = x;
+                this.y = y;
+                this.speedX = speedX;
+                this.speedY = speedY;
+                this.radius = particleRadius;
+                this.stuck = false;
+                this.color = color;
+            }
+
+            // Update particle position and check for collisions
+            update() {
+                if (!this.stuck) {
+                    this.speedY += gravity; // Apply gravity
+                    this.x += this.speedX;
+                    this.y += this.speedY;
+
+                    // Check for boundaries and collisions
+                    if (this.y + this.radius > canvas.height) {
+                        this.y = canvas.height - this.radius;
+                        this.stuck = true; // Stick when hitting the bottom
+                    }
+                    this.checkCollision();
+                }
+            }
+
+            // Check if the particle collides with other particles
+            checkCollision() {
+                for (let other of particles) {
+                    if (!other.stuck || other === this) continue;
+                    let dx = this.x - other.x;
+                    let dy = this.y - other.y;
+                    let dist = Math.hypot(dx, dy);
+
+                    // If collides with another particle
+                    if (dist < this.radius * 2) {
+                        this.stuck = true;
+                        this.speedX = 0;
+                        this.speedY = 0;
+                        break;
+                    }
+                }
+            }
+
+            // Draw the particle on the canvas
+            draw() {
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        // Create particles when the mouse is pressed
+        function createParticles() {
+            if (isMousePressed) {
+                // Randomly vary initial speed to make the flow more natural
+                let speedX = (Math.random() - 0.5) * 2;
+                let speedY = Math.random() * 2;
+
+                let particle = new Particle(mouseX, mouseY, speedX, speedY, colorPicker.value);
+                particles.push(particle);
+            }
+        }
+
+        // Update the canvas and particles
+        function frame() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Update and draw all particles
+            particles.forEach(p => {
+                p.update();
+                p.draw();
+            });
+
+            // Create particles if the mouse is pressed
+            createParticles();
+
+            if (canvasRunning) {
+                requestAnimationFrame(frame);
+            }
+        }
+
+        // Restart the simulation
+        document.getElementById("restartButton").addEventListener("click", () => {
+            particles = [];
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        });
+
+        // Save the canvas as an image
+        document.getElementById("saveButton").addEventListener("click", () => {
+            const link = document.createElement("a");
+            link.download = "water_simulation.png";
+            link.href = canvas.toDataURL("image/png");
+            link.click();
+        });
+
+        // Handle mouse press event
+        canvas.addEventListener("mousedown", e => {
+            isMousePressed = true;
+            mouseX = e.clientX;
+            mouseY = e.clientY;
+        });
+
+        // Handle mouse move to update drip location
+        canvas.addEventListener("mousemove", e => {
+            if (isMousePressed) {
+                mouseX = e.clientX;
+                mouseY = e.clientY;
+            }
+        });
+
+        // Stop particle creation when mouse is released
+        canvas.addEventListener("mouseup", () => {
+            isMousePressed = false;
+        });
+
+        // Handle resizing of the window
+        window.addEventListener("resize", () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        });
+
+        // Start the animation loop
+        frame();
+    </script>
+</body>
+</html>
